@@ -488,32 +488,47 @@ func (s *SIPServer) handleInvite(req *sip.Request, tx sip.ServerTransaction) {
 		supportsPCMU = true
 	}
 
-	payload := InvitePayload{
-		URI:    requestURI,
-		From:   fromURI,
-		CallID: callID,
-	}
+	var sessionConfig *SessionConfig
+	var err error
 
-	// Make HTTP callback
-	sessionConfig, err := s.sendCallback(payload)
-	if err != nil {
-		slog.Error("Callback failed",
-			"event", "callback_failed",
-			"error", err.Error())
-		// Send error response
-		resp := sip.NewResponseFromRequest(req, sip.StatusServiceUnavailable, "Service Unavailable", nil)
-		s.logSentMessage(resp)
-		if err := tx.Respond(resp); err != nil {
-			slog.Error("Failed to send error response",
-				"event", "sip_response_error",
-				"error", err.Error())
+	// Make HTTP callback if URL is configured, otherwise use default
+	if s.config.CallbackURL != "" {
+		payload := InvitePayload{
+			URI:    requestURI,
+			From:   fromURI,
+			CallID: callID,
 		}
-		return
-	}
 
-	slog.Info("Callback successful, sending 200 OK",
-		"event", "callback_success",
-		"call_id", callID)
+		sessionConfig, err = s.sendCallback(payload)
+		if err != nil {
+			slog.Error("Callback failed",
+				"event", "callback_failed",
+				"error", err.Error())
+			// Send error response
+			resp := sip.NewResponseFromRequest(req, sip.StatusServiceUnavailable, "Service Unavailable", nil)
+			s.logSentMessage(resp)
+			if err := tx.Respond(resp); err != nil {
+				slog.Error("Failed to send error response",
+					"event", "sip_response_error",
+					"error", err.Error())
+			}
+			return
+		}
+
+		slog.Info("Callback successful, sending 200 OK",
+			"event", "callback_success",
+			"call_id", callID)
+	} else {
+		// Use default session configuration
+		sessionConfig = &SessionConfig{
+			SystemInstructions: "You are a helpful voice assistant. Be concise, friendly, and natural in your responses. Keep your answers brief and conversational, as this is a phone call.",
+			Voice:              "Puck",
+			Language:           "en-US",
+		}
+		slog.Info("Using default session configuration (no callback URL configured)",
+			"event", "default_config_used",
+			"call_id", callID)
+	}
 
 	// Create media bridge
 	mediaBridge := NewMediaBridge()

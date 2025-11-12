@@ -28,7 +28,7 @@ func main() {
 	}
 
 	port := flag.Int("port", 5060, "SIP server port")
-	callbackURL := flag.String("callback-url", "", "HTTP callback URL for INVITE notifications")
+	callbackURL := flag.String("callback-url", "", "HTTP callback URL for INVITE notifications (optional)")
 	twilioPort := flag.Int("twilio-port", 8080, "Twilio webhook server port")
 	sipUsername := flag.String("sip-username", "", "SIP username for Twilio")
 	sipPassword := flag.String("sip-password", "", "SIP password for Twilio")
@@ -36,12 +36,6 @@ func main() {
 	sipURLArg := flag.String("sip-url", "", "SIP URL for Twilio (defaults to sip:PUBLIC_IP:5060)")
 	twilioFrom := flag.String("twilio-from", "+1123456789", "Caller ID for Twilio")
 	flag.Parse()
-
-	if *callbackURL == "" {
-		slog.Error("callback-url is required",
-			"event", "config_error")
-		os.Exit(1)
-	}
 
 	// Determine public IP
 	var actualPublicIP string
@@ -94,7 +88,11 @@ func main() {
 	}
 
 	fmt.Printf("SIP Proxy listening on port %d\n", *port)
-	fmt.Printf("Callback URL: %s\n", *callbackURL)
+	if *callbackURL != "" {
+		fmt.Printf("Callback URL: %s\n", *callbackURL)
+	} else {
+		fmt.Println("Callback URL: none (using default prompt)")
+	}
 	fmt.Printf("Twilio webhook server listening on port %d\n", *twilioPort)
 	fmt.Printf("Public IP: %s\n", actualPublicIP)
 	fmt.Printf("SIP URL: %s\n", sipURL)
